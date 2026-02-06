@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Abstellplan als PDF exportieren</title>
+  <style>
+    :root{
+      --bg:#0f1b2b;--panel:#0a1622;--grid:#1f2d3a;--axis:#233040;--text:#fff;
+      --label-w:200px;--row-h:90px;--ok:#2ecc71;--warn:#f39c12;--err:#e74c3c
+    }
+    *{box-sizing:border-box}
+    html,body{margin:0;padding:0}
+    body{font-family:Arial,Helvetica,sans-serif;background:var(--bg);color:var(--text)}
+    #app{padding:20px}
+    h1{margin:0 0 8px 0}
+    .toolbar{display:flex;gap:12px;align-items:center;margin-bottom:8px;flex-wrap:wrap}
+    button:disabled{opacity:.5;cursor:not-allowed}
+    .status{display:flex;gap:10px;align-items:center;font-size:12px;margin:6px 0 12px}
+    .badge{padding:3px 8px;border-radius:6px;background:#34495e}
+    .ok{background:var(--ok);color:#000} .warn{background:var(--warn);color:#000} .err{background:var(--err)}
+
+    #timelineContainer{position:relative;height:70vh;border:1px solid var(--axis);background:var(--panel);overflow:auto}
+    #timeAxis{
+      position:sticky;top:0;left:0;height:30px;background:#0e1a28;border-bottom:1px solid var(--axis);
+      z-index:10;display:flex;align-items:center;padding-left:calc(var(--label-w) + 10px);font-size:12px;gap:40px
+    }
+    #timeline{position:relative;padding-left:var(--label-w)}
+    .track-row{position:relative;height:var(--row-h);border-bottom:1px solid var(--grid)}
+    .track-label{
+      position:absolute;left:0;top:0;width:var(--label-w);height:100%;padding:10px;font-weight:bold;
+      color:#e6eef9;background:linear-gradient(90deg,rgba(255,255,255,.04),transparent)
+    }
+    .grid-line{position:absolute;top:0;bottom:0;width:1px;background:rgba(255,255,255,.06)}
+    .block{
+      position:absolute;top:34px;height:40px;border-radius:8px;color:#fff;padding:6px 8px;font-size:12px;
+      overflow:hidden;white-space:nowrap;text-overflow:ellipsis;display:flex;align-items:center;
+      border:1px solid rgba(255,255,255,.12)
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <h1>Abstellplan als PDF exportieren</h1>
+
+    <div class="toolbar">
+      <input type="file" id="fileInput" accept=".json" />
+      <button id="exportPdf" disabled>PDF exportieren</button>
+      <button id="loadSample" title="Lädt eine kleine Beispiel-JSON">Muster‑JSON laden</button>
+    </div>
+
+    <div class="status">
+      <span id="jsonStatus" class="badge warn">JSON: nicht geladen</span>
+      <span id="pdfStatus"  class="badge warn">jsPDF: wird geprüft …</span>
+    </div>
+
+    <div id="timelineContainer">
+      <div id="timeAxis"></div>
+      <div id="timeline"></div>
+    </div>
+  </div>
+
+  <!-- jsPDF zuerst laden (lokal mit CDN-Fallback) -->
+  <script>
+    (function addJsPdfScript(){
+      const local = document.createElement('script');
+      local.src = 'jspdf.umd.min.js';
+      local.onload = () => { window.__jspdfLoaded = 'local'; afterJsPdfLoad(); };
+      local.onerror = () => {
+        const cdn = document.createElement('script');
+        cdn.src = 'https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js';
+        cdn.onload = () => { window.__jspdfLoaded = 'cdn'; afterJsPdfLoad(); };
+        cdn.onerror = () => { window.__jspdfLoaded = 'failed'; afterJsPdfLoad(); };
+        document.body.appendChild(cdn);
+      };
+      document.body.appendChild(local);
+    })();
+    function afterJsPdfLoad(){
+      const s = document.getElementById('pdfStatus');
+      if (window.jspdf && window.jspdf.jsPDF){
+        s.textContent = `jsPDF: geladen (${window.__jspdfLoaded})`;
+        s.className = 'badge ok';
+      } else {
+        s.textContent = 'jsPDF: NICHT geladen';
+        s.className = 'badge err';
+        console.error('jsPDF konnte nicht geladen werden.');
+      }
+    }
+  </script>
+
+  <!-- ===== App-Logik (Web-Vorschau) — globaler Scope ===== -->
+  <script>
+    const MINUTES_PER_DAY = 1440;
+    const SCALE = 5;     // 5 px / Minute (Web-Vorschau)
+    const ROW_H = 90;
+
+    const fileInput = document.getElementById("fileInput");
+    const exportBtn = document.getElementById("exportPdf");
+    const loadSample = document.getElementById("loadSample");
+    const timeline = document.getElementById("timeline");
+    const timeAxis = document.getElementById("timeAxis");
+    const jsonStatus = document.getElementById("jsonStatus");
+
+    let jsonData = null; // global
+
+    fileInput.addEventListener("change", async (e) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      try {
+        const text = await file.text();
+        await loadAndRender(text, `Datei: ${file.name}`);
+      } catch (err) {
+        console.error(err);
+        alert("Datei konnte nicht gelesen werden.");
+      }
+    });
+
+    loadSample.addEventListener("click", async () => {
+      const sample = {
+        "time":{"start":"00:00","end":"23:59","pxPerMin":2},
+        "tracks":[
+          {"id":"t1","name":"210 - NEU (T‑Säulen)","length":230},
+          {"id":"t2","name":"212 - NEU (T‑Säulen)","length":256},
+          {"id":"t3","name":"134 - NEU (T‑Säulen)","length":220}
+        ],
+        "trains":[
+          {"id":"r1","name":"369/1298 RJ","length":206,"color":"#800000"},
+          {"id":"r2","name":"546/747 KISS (Umlauf 1301)","length":150,"color":"#8000ff"},
+          {"id":"r3","name":"898/897 IC 4Tlg","length":106,"color":"#ff8000"}
+        ],
+        "blocks":[
+          {"id":"b1","trackId":"t1","trainId":"r1","startMin":0,"endMin":300},
+          {"id":"b2","trackId":"t2","trainId":"r2","startMin":480,"endMin":840},
+          {"id":"b3","trackId":"t3","trainId":"r3","startMin":60,"endMin":120}
+        ]
+      };
+      await loadAndRender(JSON.stringify(sample), "Muster‑JSON");
+    });
+
+    async function loadAndRender(text, label){
+      try{
+        jsonStatus.textContent = "JSON: wird geparst …";
+        jsonStatus.className = "badge warn";
+
+        const data = JSON.parse(text);
+        if(!(data && Array.isArray(data.tracks) && Array.isArray(data.trains) && Array.isArray(data.blocks))){
+          jsonStatus.textContent = "JSON: ungültige Struktur";
+          jsonStatus.className = "badge err";
+          exportBtn.disabled = true;
+          alert("Die JSON hat nicht die erwartete Struktur (tracks, trains, blocks).");
+          return;
+        }
+
+        jsonData = data; // global setzen
+
+        render();
+        exportBtn.disabled = false;
+        jsonStatus.textContent = `JSON: geladen (${label})`;
+        jsonStatus.className = "badge ok";
+      }catch(err){
+        console.error("JSON-Fehler:", err);
+        jsonStatus.textContent = "JSON: Parse-Fehler";
+        jsonStatus.className = "badge err";
+        exportBtn.disabled = true;
+        alert("Konnte die JSON nicht lesen. Bitte Format prüfen.");
+      }
+    }
+
+    function render(){
+      if(!jsonData) return;
+
+      const widthPx = MINUTES_PER_DAY * SCALE + 200;
+      timeline.style.width = `${widthPx}px`;
+      timeline.innerHTML = "";
+      timeAxis.innerHTML = "";
+
+      for(let h=0; h<=24; h++){
+        const label = document.createElement("div");
+        label.textContent = `${String(h).padStart(2,"0")}:00`;
+        timeAxis.appendChild(label);
+
+        const x = h * 60 * SCALE + 200; // + Labelspalten-Breite
+        const gl = document.createElement("div");
+        gl.className = "grid-line";
+        gl.style.left = `${x}px`;
+        timeline.appendChild(gl);
+      }
+
+      jsonData.tracks.forEach((track, idx) => {
+        const row = document.createElement("div");
+        row.className = "track-row";
+        row.style.top = `${idx * ROW_H}px`;
+
+        const lab = document.createElement("div");
+        lab.className = "track-label";
+        const len = (track.length ?? "").toString().trim();
+        lab.textContent = `${track.name}${len ? " — " + len + " m" : ""}`;
+        row.appendChild(lab);
+
+        jsonData.blocks
+          .filter(b => b.trackId === track.id)
+          .forEach(b => {
+            const train = jsonData.trains.find(t => t.id === b.trainId);
+            if(!train) return;
+
+            const left  = b.startMin * SCALE + 200;
+            const width = (b.endMin - b.startMin) * SCALE;
+
+            const block = document.createElement("div");
+            block.className = "block";
+            block.style.left = `${left}px`;
+            block.style.width = `${width}px`;
+            block.style.background = train.color || "#3a86ff";
+            block.textContent = `${train.name} (${toHHMM(b.startMin)}–${toHHMM(b.endMin)})`;
+            row.appendChild(block);
+          });
+
+        timeline.appendChild(row);
+      });
+
+      timeline.style.height = `${jsonData.tracks.length * ROW_H}px`;
+    }
+
+    function toHHMM(min){
+      const h = Math.floor(min/60), m = min%60;
+      return `${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}`;
+    }
+  </script>
+
+  <!-- Neuer moderner PDF-Exporter -->
+  <script src="pdfExport.js"></script>
+
+  <!-- Button mit NEUEM Exporter verdrahten -->
+  <script>
+    document.getElementById("exportPdf").addEventListener("click", () => {
+      try{
+        console.log("[Export] Klick erkannt");
+        if (!jsonData) return alert("Bitte zuerst eine JSON laden.");
+        if (!(window.jspdf && window.jspdf.jsPDF)) return alert("jsPDF ist nicht geladen (lokale Datei/Netzwerk prüfen).");
+        if (typeof generateModernPdf !== 'function') return alert('Export-Funktion nicht gefunden.');
+        generateModernPdf();
+      }catch(e){
+        console.error('[Export] Fehler:', e);
+        alert('Export-Fehler: ' + (e && e.message ? e.message : e));
+      }
+    });
+  </script>
+</body>
+</html>

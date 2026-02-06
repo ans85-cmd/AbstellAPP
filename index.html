@@ -1,0 +1,28 @@
+<!DOCTYPE html><html lang="de"><head><meta charset="UTF-8"><meta name="viewport"content="width=device-width, initial-scale=1.0"><title>
+AbstellAPP Login</title><style>
+body{margin:0;background:#0d0d0d;color:#eee;font-family:Arial,sans-serif;display:flex;justify-content:center;align-items:center;height:100vh;}
+.box{background:#1a1a1a;padding:30px;border-radius:12px;box-shadow:0 0 25px #0008;width:330px;text-align:center;}
+.box img{width:130px;height:auto;display:block;margin:0 auto 20px auto;
+filter:drop-shadow(0 0 6px #ff0000)drop-shadow(0 0 12px #cc0000)drop-shadow(0 0 22px #990000);}
+@keyframes g{0%{filter:drop-shadow(0 0 6px #ff0000);}50%{filter:drop-shadow(0 0 18px #ff3333);}100%{filter:drop-shadow(0 0 6px #ff0000);}}
+.box img:hover{animation:g 1.6s infinite;}
+.box h2{margin-bottom:15px;color:#e60000;}
+.box input{width:100%;padding:10px;margin:8px 0;border:none;border-radius:6px;background:#2a2a2a;color:#fff;}
+.box button{width:100%;padding:10px;border:none;border-radius:6px;background:#e60000;color:#fff;font-weight:bold;cursor:pointer;margin-top:10px;}
+.box button:hover{background:#ff0000;}
+.info{margin-top:18px;font-size:11px;color:#999;line-height:1.4;}
+</style>
+<script>
+document.addEventListener("contextmenu",e=>e.preventDefault());
+function L(){let U=document.getElementById("u").value,P=document.getElementById("p").value,
+__x=['A','b','s','t','e','l','l','A','P','P'],a=__x.join(''),
+___y=['4','7','1','1'],b=___y.join('');if(U===a&&P===b){window.location.href="AbstellAPP.html";}
+else{((((alert))))("Login fehlgeschlagen.")}}
+</script></head><body><div class="box">
+<img src="images/logo.png"lAPP Login</h2>
+<input id="u" type="text" placeholder="Benutzername">
+<input id="p" type="password" placeholder="Passwort">
+<button onclick="(function(){L();})();">Login</button>
+<div class="info">Dieses Tool dient ausschließlich als interne Arbeitshilfe und
+stellt keine offizielle Unternehmenssoftware dar. Nutzung auf eigene Verantwortung. (C) Bernhard Kornberger 2026</div>
+</div></body></html>

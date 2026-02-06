@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AbstellAPP - Verschub- und Anlagenbelegungsplaner</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header>
+    <h1>
+      Verschub- und Anlagenbelegungsplaner - AbstellAPP<br>
+      <span class="subline">© 2026 Bernhard Kornberger – Alle Rechte vorbehalten. / E-Mail: bernhard.kornberger@pv.oebb.at, Tel: 06646178982</span>
+    </h1>
+    <div class="actions">
+      <input type="text" id="searchInput" placeholder="Suche (Zug, Gleis, Zeit)…" class="searchBox" />
+      <button id="searchBtn" title="Suche ausführen">Suchen</button>
+      <button id="btnExport" title="Projekt als JSON exportieren">Speichern</button>
+      <button id="btnReset" title="Alles zurücksetzen">Zurücksetzen</button>
+      <button onclick="openPopup()">Abstellplan erstellen</button>
+      <script>
+        function openPopup() {
+          window.open(
+            "AusgabeAPP/index.html",
+            "popup",
+            "width=1200, height=800, scrollbars=no, resizable=yes"
+          );
+        }
+      </script>
+      <label class="importLabel">
+        Importieren
+        <input type="file" id="fileImport" accept="application/json" />
+      </label>
+    </div>
+  </header>
+  <div class="container">
+    <aside>
+      <section>
+        <h2>Zeithorizont</h2>
+        <div class="fieldRow"><label for="startTime">Start</label><input type="time" id="startTime" value="06:00" /></div>
+        <div class="fieldRow"><label for="endTime">Ende</label><input type="time" id="endTime" value="22:00" /></div>
+        <div class="fieldRow"><label for="pxPerMin">Pixel/Minute</label><input type="number" id="pxPerMin" value="3" min="0.5" step="0.5" /></div>
+        <button id="btnApplyTime">Zeit anwenden</button>
+      </section>
+      <section>
+        <h2>Auswahl / Bearbeiten</h2>
+        <div id="selectionPanel" class="selectionPanel">
+          <p>Kein Element ausgewählt.</p>
+        </div>
+      </section>
+      <section>
+        <h2>Zuggarnituren</h2>
+        <form id="trainForm" class="formInline">
+          <input type="text" id="trainName" placeholder="Bezeichnung" required />
+          <input type="number" id="trainLength" placeholder="Länge (m)" min="1" required />
+          <input type="color" id="trainColor" value="#2e86de" />
+          <button type="submit">Hinzufügen</button>
+        </form>
+        <ul id="trainList" class="list palette"></ul>
+      </section>
+      <section>
+        <h2>Gleise</h2>
+        <form id="trackForm" class="formInline">
+          <input type="text" id="trackName" placeholder="Gleisbezeichnung" required />
+          <input type="number" id="trackLength" placeholder="Länge (m)" min="1" required />
+          <button type="submit">+</button>
+        </form>
+        <ul id="trackList" class="list"></ul>
+      </section>
+    </aside>
+    <main>
+      <div id="timelineHeader" class="timelineHeader"></div>
+      <div id="tracksView" class="tracksView"></div>
+    </main>
+  </div>
+  <dialog id="blockDialog" class="dialog">
+    <form method="dialog" id="blockForm">
+      <h3>Neue Abstellung</h3>
+      <div class="fieldRow"><label for="blockTrain">Garnitur</label><select id="blockTrain"></select></div>
+      <div class="fieldRow"><label for="blockStart">Ankunft</label><input type="time" id="blockStart" required /></div>
+      <div class="fieldRow"><label for="blockEnd">Abfahrt</label><input type="time" id="blockEnd" required /></div>
+      <div class="dialogActions">
+        <button value="cancel">Abbrechen</button>
+        <button id="blockSave" value="default">Speichern</button>
+      </div>
+    </form>
+  </dialog>
+  <script src="app.js"></script>
+</body>
+</html>
